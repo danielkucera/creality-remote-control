@@ -1,0 +1,216 @@
+<!DOCTYPE HTML>
+
+<html>
+	<head>
+		<title>Creality Halot Remote Control</title>
+		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+   	</head>
+   
+   	<body>
+    	<div id = "sse">
+			URL: <input type=text value="ws://192.168.29.223:18188/" id="url">
+			token: <input type=text value="p1s2QIS64a8=" id="token">
+        	<input type=submit value="Connect" onClick="javascript:connect()">
+        	<input type=submit value="Disconnect" onClick="javascript:disconnect()">
+			<i>token value kpnyFvFnCSI= equals to password 0</i>
+      	</div><br>
+      	<div id = "fileCmds">
+			<input type="file" id="inputFile" />
+        	<input type=submit value="Upload file" onClick="javascript:uploadFile()">
+      	</div><br>
+      	<div id = "cmds">
+        	<input type=submit value="Print" onClick="javascript:startPrint()">
+        	<input type=submit value="Pause" onClick="javascript:sendCmd('PRINT_PAUSE')">
+        	<input type=submit value="Stop" onClick="javascript:stopPrint()">
+      	</div><br>
+      	<div id = "fileStatus"></div><br>
+      	<div id = "status"></div><br>
+      	<div id = "log"></div>
+		<script type = "text/javascript">
+			var ws;
+			var stat;
+			var statusTimer;
+			var file;
+			var token;
+	
+			document.getElementById('inputFile').addEventListener('change', function(e) {
+				  file = document.getElementById('inputFile').files[0];
+			});
+	
+			function log(text){
+				line = (new Date().toLocaleTimeString()) + " " + text + "<br>\n";
+				document.getElementById('log').innerHTML = line + document.getElementById('log').innerHTML;
+			}
+		
+			function printStatus(stat){
+				code = "";
+				code += "Status: " + stat.printStatus + "<br>\n";
+				code += "Filename: " + stat.filename + "<br>\n";
+				code += "Time left: " + stat.printRemainTime + "s<br>\n";
+				code += "Progress: " + Math.round((stat.curSliceLayer/stat.sliceLayerCount)*100) + "%<br>\n";
+				code += "Current layer: " + stat.curSliceLayer + "<br>\n";
+				code += "Total layers: " + stat.sliceLayerCount + "<br>\n";
+				code += "Print exposure: " + stat.printExposure + "s<br>\n";
+				code += "Layer thickness: " + stat.layerThickness + "mm<br>\n";
+				code += "Rising height: " + stat.printHeight + "mm<br>\n";
+				code += "Bottom layers: " + stat.bottomExposureNum + "<br>\n";
+				code += "Initial exposure: " + stat.initExposure + "s<br>\n";
+				code += "Turn off delay: " + stat.delayLight + "s<br>\n";
+				code += "Motor speed: " + stat.eleSpeed + "mm/s<br>\n";
+				code += "Exposure time: " + stat.delayLight + "s<br>\n";
+				code += "Resin: " + stat.resin + "<br>\n";
+
+				document.getElementById('status').innerHTML = code;
+			}
+
+			function printFileStatus(stat){
+				code = "";
+				code += "Sent: " + stat.received/(1024*1024) + " MB<br>\n";
+				code += "Size: " + stat.size/(1024*1024) + " MB<br>\n";
+				code += "Progress: " + Math.round((stat.received/stat.size)*100) + "%<br>\n";
+				code += "Checked: " + (stat.checkstate ? "OK" : "ERROR") + "<br>\n";
+
+				document.getElementById('fileStatus').innerHTML = code;
+			}
+
+			function sendCmd(cmd, extras = {}){
+
+				if (!ws || ws.readyState != 1){
+					alert("Not connected, please connect first.");
+					return;
+				}
+
+				msg = {
+					cmd: cmd,
+					token: token,
+					...extras,
+				};
+				jmsg = JSON.stringify(msg);
+				log("> " + jmsg);
+				ws.send(jmsg);
+
+			}
+	
+			function getStatus(){
+				sendCmd("GET_PRINT_STATUS");
+			}
+
+			function uploadFile(){
+				if (!file) {
+					alert("Please choose a file first.");
+					return;
+				}
+
+				extras = {
+					filename: file.name,
+					offset: "0", // why string?
+					size: file.size.toString(), // why?
+				}
+				sendCmd("START_FILE", extras);
+			}
+
+			function startPrint(){
+				if (confirm("Are you sure you want to start new print?") == true){
+					//sendCmd("START_PRINT", {filename: file.name});
+				}
+			}
+
+			function stopPrint(){
+				if (confirm("Are you sure you want to stop the print?") == true){
+					sendCmd('PRINT_STOP')
+				}
+			}
+		
+			function disconnect(){
+				log("Disconnecting...");	
+				ws.close();
+			}
+
+			var readEventHandler = function(evt) {
+				if (evt.target.error == null) {
+					data = evt.target.result;
+
+					console.log(data);
+					
+					zdata = pako.deflate(data);
+
+					len = new Uint8Array(4);
+					len[0] = (data.byteLength >> 24) & 0xff;
+					len[1] = (data.byteLength >> 16) & 0xff;
+					len[2] = (data.byteLength >> 8) & 0xff;
+					len[3] = (data.byteLength >> 0) & 0xff;
+
+					var blob = new Blob([len, zdata]);
+
+					console.log(blob);
+					ws.send(blob);
+
+				} else {
+					console.log("Read error: " + evt.target.error);
+					return;
+				}
+			}
+
+			function sendChunk(offset){
+				dataSlice = file.slice(offset, offset + 0x10000);
+
+				reader = new FileReader();
+
+				reader.onload = readEventHandler;
+
+				reader.readAsArrayBuffer(dataSlice);
+			}
+	
+			 function connect(){
+				if ("WebSocket" in window) {
+					url = document.getElementById('url').value;
+					token = document.getElementById('token').value;
+
+				    // Let us open a web socket
+				    ws = new WebSocket(url);
+					
+				   	ws.onopen = function() {
+						log("Connected.");
+					  
+						getStatus();
+			  
+						statusTimer = setInterval(getStatus, 5000);
+					};
+					
+				    ws.onmessage = function (evt) { 
+						var received_msg = evt.data;
+						msg = JSON.parse(evt.data);
+	
+						cmd = msg.cmd;
+						
+						if (cmd == "GET_PRINT_STATUS") {
+							printStatus(msg);
+
+						} else if (cmd == "START_FILE") {
+							offset = parseInt(msg.offset)
+							sendChunk(offset);
+
+						} else if (cmd == "START_DATA") {
+							offset = parseInt(msg.received)
+							printFileStatus(msg);
+							sendChunk(offset);
+
+						} else if (cmd == "CHECK_DATA") {
+							printFileStatus(msg);
+						}
+
+						log("< " + received_msg);
+					};
+					
+					ws.onclose = function() { 
+						clearInterval(statusTimer);
+						log("Connection is closed..."); 
+					};
+	
+				} else {
+					log("WebSocket NOT supported by your Browser!");
+				}
+			}
+		</script>
+   	</body>
+</html>
