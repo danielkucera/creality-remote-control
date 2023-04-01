@@ -46,8 +46,8 @@
 				code = "";
 				code += "Status: " + stat.printStatus + "<br>\n";
 				code += "Filename: " + stat.filename + "<br>\n";
-				code += "Time left: " + stat.printRemainTime + "s<br>\n";
-				code += "Progress: " + Math.round((stat.curSliceLayer/stat.sliceLayerCount)*100) + "%<br>\n";
+				code += "Time left: " + new Date(stat.printRemainTime*1000).toISOString().substring(11, 19) + "<br>\n";
+				code += "Progress: " + Math.round((stat.curSliceLayer/stat.sliceLayerCount)*1000)/10 + "%<br>\n";
 				code += "Current layer: " + stat.curSliceLayer + "<br>\n";
 				code += "Total layers: " + stat.sliceLayerCount + "<br>\n";
 				code += "Print exposure: " + stat.printExposure + "s<br>\n";
