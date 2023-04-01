@@ -9,7 +9,7 @@
    	<body>
     	<div id = "sse">
 			URL: <input type=text value="ws://192.168.29.223:18188/" id="url">
-			token: <input type=text value="p1s2QIS64a8=" id="token">
+			token: <input type=text value="kpnyFvFnCSI=" id="token">
         	<input type=submit value="Connect" onClick="javascript:connect()">
         	<input type=submit value="Disconnect" onClick="javascript:disconnect()">
 			<i>token value kpnyFvFnCSI= equals to password 0</i>
@@ -111,13 +111,13 @@
 
 			function startPrint(){
 				if (confirm("Are you sure you want to start new print?") == true){
-					//sendCmd("START_PRINT", {filename: file.name});
+					sendCmd("START_PRINT", {filename: file.name});
 				}
 			}
 
 			function stopPrint(){
 				if (confirm("Are you sure you want to stop the print?") == true){
-					sendCmd('PRINT_STOP')
+					sendCmd('PRINT_STOP');
 				}
 			}
 		
