@@ -231,8 +231,7 @@
 				}
 			}
 
-			function onPageLoad(){
-				console.log(window.location.hash);
+			function updateParamsFromHash(){
 				params = new URLSearchParams(location.hash.substring(1));
 
 				if(params.has("url")){
@@ -242,6 +241,17 @@
 				if(params.has("password")){
 					document.getElementById('password').value = params.get("password");
 				}
+			}
+
+			function onPageLoad(){
+				console.log(window.location.hash);
+
+				if ("onhashchange" in window) // does the browser support the hashchange event?
+				window.onhashchange = function () {
+					updateParamsFromHash();
+				}
+
+				updateParamsFromHash();
 			}
 
 		</script>
