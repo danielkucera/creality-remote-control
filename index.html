@@ -3,20 +3,20 @@
 <html>
 	<head>
 		<title>Creality Halot Remote Control</title>
-		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js" integrity="sha512-g2TeAWw5GPnX7z0Kn8nFbYfeHcvAu/tx6d6mrLe/90mkCxO+RcptyYpksUz35EO337F83bZwcmUyHiHamspkfg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.js" integrity="sha512-NQVmLzNy4Lr5QTrmXvq/WzTMUnRHmv7nyIT/M6LyGPBS+TIeRxZ+YQaqWxjpRpvRMQSuYPQURZz/+pLi81xXeA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
    	</head>
    
-   	<body>
+   	<body onload="onPageLoad()">
     	<div id = "sse">
 			URL: <input type=text value="ws://192.168.29.223:18188/" id="url">
-			token: <input type=text value="kpnyFvFnCSI=" id="token">
+			password: <input type=text value="0" id="password">
         	<input type=submit value="Connect" onClick="javascript:connect()">
         	<input type=submit value="Disconnect" onClick="javascript:disconnect()">
-			<i>token value kpnyFvFnCSI= equals to password 0</i>
       	</div><br>
       	<div id = "fileCmds">
-			<input type="file" id="inputFile" />
-        	<input type=submit value="Upload file" onClick="javascript:uploadFile()">
+			File upload: <input type="file" id="inputFile" />
+        	<input type=submit value="Upload" onClick="javascript:uploadFile()">
       	</div><br>
       	<div id = "cmds">
         	<input type=submit value="Print" onClick="javascript:startPrint()">
@@ -25,7 +25,7 @@
       	</div><br>
       	<div id = "fileStatus"></div><br>
       	<div id = "status"></div><br>
-      	<div id = "log"></div>
+      	<div id = "log" style="font-size:11px;"></div>
 		<script type = "text/javascript">
 			var ws;
 			var stat;
@@ -40,6 +40,21 @@
 			function log(text){
 				line = (new Date().toLocaleTimeString()) + " " + text + "<br>\n";
 				document.getElementById('log').innerHTML = line + document.getElementById('log').innerHTML;
+			}
+
+			function passToToken(password){
+				// from: https://github.com/tarequeh/DES/blob/master/run_des.c#L136
+
+				var key = CryptoJS.enc.Hex.parse("6138356539643638");
+
+				var encrypted = CryptoJS.DES.encrypt(password, key, {
+					mode: CryptoJS.mode.ECB,
+					padding: CryptoJS.pad.Pkcs7
+				});
+
+				var finalEncrypted = CryptoJS.enc.Base64.stringify(encrypted.ciphertext);
+
+				return finalEncrypted;
 			}
 		
 			function printStatus(stat){
@@ -162,9 +177,13 @@
 			}
 	
 			 function connect(){
+				log("Connecting...")
 				if ("WebSocket" in window) {
 					url = document.getElementById('url').value;
-					token = document.getElementById('token').value;
+					password = document.getElementById('password').value;
+					token = passToToken(password);
+
+					window.location.hash = "url="+url+"&password="+password;
 
 				    // Let us open a web socket
 				    ws = new WebSocket(url);
@@ -211,6 +230,20 @@
 					log("WebSocket NOT supported by your Browser!");
 				}
 			}
+
+			function onPageLoad(){
+				console.log(window.location.hash);
+				params = new URLSearchParams(location.hash.substring(1));
+
+				if(params.has("url")){
+					document.getElementById('url').value = params.get("url");
+				}
+
+				if(params.has("password")){
+					document.getElementById('password').value = params.get("password");
+				}
+			}
+
 		</script>
    	</body>
 </html>
